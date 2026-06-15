@@ -1,0 +1,31 @@
+name: Mezzanine schedule alarm
+
+on:
+  schedule:
+    # Weekdays at 09:15 Asia/Seoul (00:15 UTC)
+    - cron: "15 0 * * 1-5"
+  workflow_dispatch:
+
+concurrency:
+  group: mezzanine-schedule-alarm
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Check mezzanine conversion and schedules
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MEZZANINE_PORTFOLIO_JSON: ${{ secrets.MEZZANINE_PORTFOLIO_JSON }}
+        run: node actions/check-mezzanine.js
