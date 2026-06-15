@@ -115,12 +115,15 @@ function splitMessages(lines, maxLength = 3900) {
 async function run(options = {}) {
   const telegramToken = options.telegramToken || process.env.TELEGRAM_BOT_TOKEN;
   const telegramChatId = options.telegramChatId || process.env.TELEGRAM_CHAT_ID;
-  const portfolioJson = options.portfolioJson || process.env.MEZZANINE_PORTFOLIO_JSON;
+  const portfolioJson = options.portfolioJson
+    || (process.env.MEZZANINE_PORTFOLIO_BASE64
+      ? Buffer.from(process.env.MEZZANINE_PORTFOLIO_BASE64, "base64").toString("utf8")
+      : process.env.MEZZANINE_PORTFOLIO_JSON);
   const fetchImpl = options.fetchImpl || fetch;
   const today = options.today || koreaToday();
 
   if (!telegramToken || !telegramChatId || !portfolioJson) {
-    throw new Error("TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MEZZANINE_PORTFOLIO_JSON가 필요합니다.");
+    throw new Error("TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MEZZANINE_PORTFOLIO_BASE64가 필요합니다.");
   }
 
   const portfolio = JSON.parse(portfolioJson);
