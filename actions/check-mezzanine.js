@@ -133,8 +133,9 @@ async function run(options = {}) {
 
   for (const item of portfolio) {
     try {
-      if (!priceCache.has(item.code)) priceCache.set(item.code, await fetchPrice(item.code, fetchImpl));
-      const { price } = priceCache.get(item.code);
+      const quoteCode = item.quoteCode || item.code;
+      if (!priceCache.has(quoteCode)) priceCache.set(quoteCode, await fetchPrice(quoteCode, fetchImpl));
+      const { price } = priceCache.get(quoteCode);
       const alerts = evaluate(item, price, today);
       if (alerts.length) {
         lines.push(`▶ ${item.name} (${String(item.code).replace(/^A/, "")})\n${alerts.map((alert) => `- ${alert}`).join("\n")}`);
@@ -162,4 +163,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { evaluate, parseCallPeriod, parseDate, run, splitMessages };
+module.exports = { evaluate, fetchPrice, koreaToday, parseCallPeriod, parseDate, run, splitMessages };
