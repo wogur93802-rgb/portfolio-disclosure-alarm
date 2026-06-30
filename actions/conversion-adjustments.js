@@ -77,6 +77,15 @@ async function fetchDisclosureText(rceptNo, fetchImpl = fetch) {
   return htmlToText(await responseText(viewerResponse));
 }
 
+async function fetchDisclosureTextFromUrl(url, fetchImpl = fetch) {
+  const response = await fetchImpl(url, {
+    headers: { "User-Agent": "Mozilla/5.0 portfolio-disclosure-alarm/1.0" },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!response.ok) throw new Error(`Disclosure HTTP ${response.status}`);
+  return htmlToText(await responseText(response));
+}
+
 function extractAdjustmentPrices(text) {
   const clean = String(text || "").replace(/\s+/g, " ");
   const byIssue = {};
@@ -133,10 +142,18 @@ async function updateOverridesFromDisclosure(disclosure, options = {}) {
   const portfolio = options.portfolio || readJson(options.portfolioPath, []);
   const overrides = readJson(options.overridesPath, {});
   const stockCode = normalizeCode(disclosure.stock_code || disclosure.stockCode);
-  const matched = portfolio.filter((item) => normalizeCode(item.code) === stockCode);
+  const disclosureName = String(disclosure.corp_name || disclosure.corpName || "").replace(/\s+/g, "");
+  const matched = portfolio.filter((item) => {
+    if (stockCode) return normalizeCode(item.code) === stockCode;
+    const names = [item.name, item.quoteName].map((value) => String(value || "").replace(/\s+/g, ""));
+    return disclosureName && names.some((name) => name.includes(disclosureName) || disclosureName.includes(name.replace(/\d+(?:CB|BW|EB|CPS|RCPS)$/i, "")));
+  });
   if (!matched.length) return { updated: 0, updates: [] };
 
-  const text = options.text || await fetchDisclosureText(disclosure.rcept_no || disclosure.rceptNo, options.fetchImpl || fetch);
+  const text = options.text
+    || (disclosure.source === "KIND" && disclosure.url
+      ? await fetchDisclosureTextFromUrl(disclosure.url, options.fetchImpl || fetch)
+      : await fetchDisclosureText(disclosure.rcept_no || disclosure.rceptNo, options.fetchImpl || fetch));
   const prices = extractAdjustmentPrices(text);
   const updates = [];
 
@@ -165,6 +182,7 @@ async function updateOverridesFromDisclosure(disclosure, options = {}) {
 module.exports = {
   extractAdjustmentPrices,
   fetchDisclosureText,
+  fetchDisclosureTextFromUrl,
   isConversionAdjustmentDisclosure,
   issueNo,
   normalizeCode,
