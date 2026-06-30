@@ -1,5 +1,10 @@
+const fs = require("node:fs");
+const path = require("node:path");
+const { overrideKey } = require("./conversion-adjustments");
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ALERT_DAYS = 14;
+const OVERRIDES_PATH = path.join(__dirname, "mezzanine-overrides.json");
 
 function koreaToday() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -37,6 +42,18 @@ function formatDate(date) {
 function number(value) {
   const parsed = Number(String(value ?? "").replaceAll(",", ""));
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function readJson(filePath, fallback) {
+  if (!fs.existsSync(filePath)) return fallback;
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function applyOverrides(portfolio, overrides = {}) {
+  return portfolio.map((item) => {
+    const override = overrides[overrideKey(item)];
+    return override ? { ...item, ...override } : item;
+  });
 }
 
 async function fetchPrice(code, fetchImpl = fetch) {
@@ -126,7 +143,10 @@ async function run(options = {}) {
     throw new Error("TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MEZZANINE_PORTFOLIO_BASE64가 필요합니다.");
   }
 
-  const portfolio = JSON.parse(portfolioJson);
+  const portfolio = applyOverrides(
+    JSON.parse(portfolioJson),
+    options.overrides || readJson(options.overridesPath || OVERRIDES_PATH, {}),
+  );
   const lines = [];
   const errors = [];
   const priceCache = new Map();
@@ -163,4 +183,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { evaluate, fetchPrice, koreaToday, parseCallPeriod, parseDate, run, splitMessages };
+module.exports = { applyOverrides, evaluate, fetchPrice, koreaToday, parseCallPeriod, parseDate, run, splitMessages };
