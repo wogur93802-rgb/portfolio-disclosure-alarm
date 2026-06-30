@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { updateOverridesFromDisclosure } = require("./conversion-adjustments");
+const { fetchKindDisclosures } = require("./kind-disclosures");
 
 const ROOT = path.resolve(__dirname, "..");
 const WATCHLIST_PATH = path.join(ROOT, "watchlist.json");
@@ -50,19 +51,30 @@ async function fetchDisclosures(apiKey, fetchImpl = fetch) {
     });
     if (!response.ok) throw new Error(`OpenDART HTTP ${response.status}`);
     const payload = await response.json();
-    if (payload.status === "013") return [];
+    if (payload.status === "013") break;
     if (payload.status !== "000") throw new Error(`OpenDART ${payload.status}: ${payload.message}`);
     results.push(...(payload.list || []));
     totalPages = Number(payload.total_page || 1);
     page += 1;
   } while (page <= totalPages);
 
-  return results;
+  const kindItems = await fetchKindDisclosures(date, fetchImpl).catch((error) => {
+    console.error(`KIND fetch failed: ${error.message}`);
+    return [];
+  });
+  const merged = [...results, ...kindItems];
+  const seen = new Set();
+  return merged.filter((item) => {
+    const key = `${item.corp_name}|${item.report_nm}|${item.rcept_dt}|${item.source || classifySource(item)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 async function sendTelegram(item, token, chatId, fetchImpl = fetch) {
-  const source = classifySource(item);
-  const url = `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${item.rcept_no}`;
+  const source = item.source || classifySource(item);
+  const url = item.url || `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${item.rcept_no}`;
   const text = [
     `[${source}] ${item.corp_name}`,
     item.report_nm,
