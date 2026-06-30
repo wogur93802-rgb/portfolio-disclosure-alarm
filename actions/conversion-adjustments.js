@@ -46,6 +46,16 @@ function htmlToText(html) {
     .trim());
 }
 
+async function responseText(response) {
+  const contentType = response.headers.get("content-type") || "";
+  const charset = contentType.match(/charset=([^;\s]+)/i)?.[1]?.toLowerCase();
+  if (charset && !/^utf-?8$/i.test(charset)) {
+    const encoding = charset === "ms949" ? "euc-kr" : charset;
+    return new TextDecoder(encoding).decode(await response.arrayBuffer());
+  }
+  return response.text();
+}
+
 async function fetchDisclosureText(rceptNo, fetchImpl = fetch) {
   const mainUrl = `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${encodeURIComponent(rceptNo)}`;
   const mainResponse = await fetchImpl(mainUrl, {
@@ -53,8 +63,8 @@ async function fetchDisclosureText(rceptNo, fetchImpl = fetch) {
     signal: AbortSignal.timeout(20000),
   });
   if (!mainResponse.ok) throw new Error(`DART main HTTP ${mainResponse.status}`);
-  const mainHtml = await mainResponse.text();
-  const view = mainHtml.match(/viewDoc\('(\d+)'\s*,\s*'(\d+)'\s*,\s*'(\d+)'\s*,\s*'(\d+)'\s*,\s*'(\d+)'\s*,\s*'([^']+)'/);
+  const mainHtml = await responseText(mainResponse);
+  const view = mainHtml.match(/viewDoc\(["'](\d+)["']\s*,\s*["'](\d+)["']\s*,\s*["'](\d+)["']\s*,\s*["'](\d+)["']\s*,\s*["'](\d+)["']\s*,\s*["']([^"']+)["']/);
   if (!view) return htmlToText(mainHtml);
 
   const [, rcpNo, dcmNo, eleId, offset, length, dtd] = view;
@@ -64,12 +74,18 @@ async function fetchDisclosureText(rceptNo, fetchImpl = fetch) {
     signal: AbortSignal.timeout(20000),
   });
   if (!viewerResponse.ok) throw new Error(`DART viewer HTTP ${viewerResponse.status}`);
-  return htmlToText(await viewerResponse.text());
+  return htmlToText(await responseText(viewerResponse));
 }
 
 function extractAdjustmentPrices(text) {
   const clean = String(text || "").replace(/\s+/g, " ");
   const byIssue = {};
+
+  const listingRowPattern = /(?:^|\s)(\d+)\s+(?:\uC0C1\uC7A5|\uBE44\uC0C1\uC7A5)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)(?=\s|$)/g;
+  for (const match of clean.matchAll(listingRowPattern)) {
+    byIssue[match[1]] = numberText(match[3]);
+  }
+
   const issuePattern = /\uC81C\s*(\d+)\s*\uD68C/g;
   const afterPattern = /\uC870\uC815\s*\uD6C4|\uC870\uC815\uD6C4/;
   for (const match of clean.matchAll(issuePattern)) {
@@ -78,10 +94,12 @@ function extractAdjustmentPrices(text) {
     const afterIndex = segment.search(afterPattern);
     const afterSegment = segment.slice(afterIndex);
     const price = numberText(afterSegment.replace(afterPattern, ""));
-    if (price) byIssue[match[1]] = price;
+    if (price && !byIssue[match[1]]) byIssue[match[1]] = price;
   }
 
   const afterPatterns = [
+    /\uCD5C\uC885\s*(?:\uC804\uD658\uAC00\uC561|\uD589\uC0AC\uAC00\uC561|\uAD50\uD658\uAC00\uC561).{0,20}?([\d,]+(?:\.\d+)?)/,
+    /\uCD5C\uC800\s*\uC870\uC815\uAC00\uC561.{0,20}?([\d,]+(?:\.\d+)?)/,
     /(?:\uC870\uC815\uD6C4|\uC870\uC815\s*\uD6C4).{0,40}?(?:\uC804\uD658\uAC00\uC561|\uD589\uC0AC\uAC00\uC561|\uAD50\uD658\uAC00\uC561).{0,80}?([\d,]+(?:\.\d+)?)/,
     /(?:\uC804\uD658\uAC00\uC561|\uD589\uC0AC\uAC00\uC561|\uAD50\uD658\uAC00\uC561).{0,20}(?:\uC870\uC815\uD6C4|\uC870\uC815\s*\uD6C4).{0,80}?([\d,]+(?:\.\d+)?)/,
   ];
