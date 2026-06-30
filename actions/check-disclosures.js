@@ -101,22 +101,20 @@ async function run(options = {}) {
   const watchedItems = allItems.filter((item) => watchlist.has(item.corp_name));
   const newItems = watchedItems.filter((item) => !seen.has(item.rcept_no)).reverse();
 
-  if (state.initialized) {
-    const portfolio = portfolioJson ? JSON.parse(portfolioJson) : [];
-    for (const item of newItems) {
-      const adjustment = await updateOverridesFromDisclosure(item, {
-        portfolio,
-        overridesPath: options.overridesPath || OVERRIDES_PATH,
-        fetchImpl,
-      });
-      await sendTelegram(item, telegramToken, telegramChatId, fetchImpl);
-      if (adjustment.updated) {
-        console.log(`전환가액 조정 반영: ${adjustment.updates.map((update) => `${update.name}=${update.currentConversionPrice}`).join(", ")}`);
-      }
+  const portfolio = portfolioJson ? JSON.parse(portfolioJson) : [];
+  for (const item of newItems) {
+    const adjustment = await updateOverridesFromDisclosure(item, {
+      portfolio,
+      overridesPath: options.overridesPath || OVERRIDES_PATH,
+      fetchImpl,
+    });
+    if (adjustment.updated) {
+      console.log(`전환가액 조정 반영: ${adjustment.updates.map((update) => `${update.name}=${update.currentConversionPrice}`).join(", ")}`);
     }
-  } else {
-    console.log("첫 실행: 기존 공시는 저장만 하고 알림을 보내지 않습니다.");
+    if (state.initialized) await sendTelegram(item, telegramToken, telegramChatId, fetchImpl);
   }
+
+  if (!state.initialized) console.log("첫 실행: 기존 공시는 저장만 하고 알림을 보내지 않습니다.");
 
   const nextSeen = [
     ...watchedItems.map((item) => item.rcept_no),
