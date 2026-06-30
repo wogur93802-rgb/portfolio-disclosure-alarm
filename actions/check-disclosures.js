@@ -1,9 +1,11 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { updateOverridesFromDisclosure } = require("./conversion-adjustments");
 
 const ROOT = path.resolve(__dirname, "..");
 const WATCHLIST_PATH = path.join(ROOT, "watchlist.json");
 const STATE_PATH = path.join(ROOT, "actions", "state.json");
+const OVERRIDES_PATH = path.join(ROOT, "actions", "mezzanine-overrides.json");
 const MAX_STATE_IDS = 5000;
 
 function koreaDate() {
@@ -83,6 +85,10 @@ async function run(options = {}) {
   const fetchImpl = options.fetchImpl || fetch;
   const watchlistPath = options.watchlistPath || WATCHLIST_PATH;
   const statePath = options.statePath || STATE_PATH;
+  const portfolioJson = options.portfolioJson
+    || (process.env.MEZZANINE_PORTFOLIO_BASE64
+      ? Buffer.from(process.env.MEZZANINE_PORTFOLIO_BASE64, "base64").toString("utf8")
+      : process.env.MEZZANINE_PORTFOLIO_JSON);
 
   if (!apiKey || !telegramToken || !telegramChatId) {
     throw new Error("DART_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID가 모두 필요합니다.");
@@ -96,7 +102,18 @@ async function run(options = {}) {
   const newItems = watchedItems.filter((item) => !seen.has(item.rcept_no)).reverse();
 
   if (state.initialized) {
-    for (const item of newItems) await sendTelegram(item, telegramToken, telegramChatId, fetchImpl);
+    const portfolio = portfolioJson ? JSON.parse(portfolioJson) : [];
+    for (const item of newItems) {
+      const adjustment = await updateOverridesFromDisclosure(item, {
+        portfolio,
+        overridesPath: options.overridesPath || OVERRIDES_PATH,
+        fetchImpl,
+      });
+      await sendTelegram(item, telegramToken, telegramChatId, fetchImpl);
+      if (adjustment.updated) {
+        console.log(`전환가액 조정 반영: ${adjustment.updates.map((update) => `${update.name}=${update.currentConversionPrice}`).join(", ")}`);
+      }
+    }
   } else {
     console.log("첫 실행: 기존 공시는 저장만 하고 알림을 보내지 않습니다.");
   }
