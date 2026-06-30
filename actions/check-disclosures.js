@@ -29,6 +29,19 @@ function readJson(filePath, fallback) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
+function disclosureNamesFromPortfolio(portfolio) {
+  const names = new Set();
+  for (const item of portfolio || []) {
+    for (const value of [item.name, item.quoteName]) {
+      const name = String(value || "")
+        .replace(/\s*\d+\s*(?:CB|BW|EB|CPS|RCPS)$/i, "")
+        .trim();
+      if (name) names.add(name);
+    }
+  }
+  return names;
+}
+
 async function fetchDisclosures(apiKey, fetchImpl = fetch) {
   const date = koreaDate();
   const results = [];
@@ -106,14 +119,14 @@ async function run(options = {}) {
     throw new Error("DART_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID가 모두 필요합니다.");
   }
 
-  const watchlist = new Set(readJson(watchlistPath, []));
+  const portfolio = portfolioJson ? JSON.parse(portfolioJson) : [];
+  const watchlist = new Set([...readJson(watchlistPath, []), ...disclosureNamesFromPortfolio(portfolio)]);
   const state = readJson(statePath, { initialized: false, seen: [] });
   const seen = new Set(state.seen || []);
   const allItems = await fetchDisclosures(apiKey, fetchImpl);
   const watchedItems = allItems.filter((item) => watchlist.has(item.corp_name));
   const newItems = watchedItems.filter((item) => !seen.has(item.rcept_no)).reverse();
 
-  const portfolio = portfolioJson ? JSON.parse(portfolioJson) : [];
   for (const item of newItems) {
     const adjustment = await updateOverridesFromDisclosure(item, {
       portfolio,
