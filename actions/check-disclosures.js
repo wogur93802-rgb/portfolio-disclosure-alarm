@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const zlib = require("node:zlib");
 const { updateOverridesFromDisclosure } = require("./conversion-adjustments");
 const { fetchKindDisclosures } = require("./kind-disclosures");
 
@@ -27,6 +28,16 @@ function classifySource(item) {
 function readJson(filePath, fallback) {
   if (!fs.existsSync(filePath)) return fallback;
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function portfolioJsonFromEnv(env = process.env) {
+  if (env.MEZZANINE_PORTFOLIO_GZIP_BASE64) {
+    return zlib.gunzipSync(Buffer.from(env.MEZZANINE_PORTFOLIO_GZIP_BASE64, "base64")).toString("utf8");
+  }
+  if (env.MEZZANINE_PORTFOLIO_BASE64) {
+    return Buffer.from(env.MEZZANINE_PORTFOLIO_BASE64, "base64").toString("utf8");
+  }
+  return env.MEZZANINE_PORTFOLIO_JSON;
 }
 
 function disclosureNamesFromPortfolio(portfolio) {
@@ -110,10 +121,7 @@ async function run(options = {}) {
   const fetchImpl = options.fetchImpl || fetch;
   const watchlistPath = options.watchlistPath || WATCHLIST_PATH;
   const statePath = options.statePath || STATE_PATH;
-  const portfolioJson = options.portfolioJson
-    || (process.env.MEZZANINE_PORTFOLIO_BASE64
-      ? Buffer.from(process.env.MEZZANINE_PORTFOLIO_BASE64, "base64").toString("utf8")
-      : process.env.MEZZANINE_PORTFOLIO_JSON);
+  const portfolioJson = options.portfolioJson || portfolioJsonFromEnv();
 
   if (!apiKey || !telegramToken || !telegramChatId) {
     throw new Error("DART_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID가 모두 필요합니다.");
