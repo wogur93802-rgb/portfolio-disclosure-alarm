@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const zlib = require("node:zlib");
 const { overrideKey } = require("./conversion-adjustments");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -70,6 +71,16 @@ function number(value) {
 function readJson(filePath, fallback) {
   if (!fs.existsSync(filePath)) return fallback;
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function portfolioJsonFromEnv(env = process.env) {
+  if (env.MEZZANINE_PORTFOLIO_GZIP_BASE64) {
+    return zlib.gunzipSync(Buffer.from(env.MEZZANINE_PORTFOLIO_GZIP_BASE64, "base64")).toString("utf8");
+  }
+  if (env.MEZZANINE_PORTFOLIO_BASE64) {
+    return Buffer.from(env.MEZZANINE_PORTFOLIO_BASE64, "base64").toString("utf8");
+  }
+  return env.MEZZANINE_PORTFOLIO_JSON;
 }
 
 function applyOverrides(portfolio, overrides = {}) {
@@ -164,10 +175,7 @@ function splitMessages(lines, maxLength = 3900) {
 async function run(options = {}) {
   const telegramToken = options.telegramToken || process.env.TELEGRAM_BOT_TOKEN;
   const telegramChatId = options.telegramChatId || process.env.TELEGRAM_CHAT_ID;
-  const portfolioJson = options.portfolioJson
-    || (process.env.MEZZANINE_PORTFOLIO_BASE64
-      ? Buffer.from(process.env.MEZZANINE_PORTFOLIO_BASE64, "base64").toString("utf8")
-      : process.env.MEZZANINE_PORTFOLIO_JSON);
+  const portfolioJson = options.portfolioJson || portfolioJsonFromEnv();
   const fetchImpl = options.fetchImpl || fetch;
   const today = options.today || koreaToday();
 
@@ -215,4 +223,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { applyOverrides, evaluate, fetchPrice, koreaToday, parseCallPeriod, parseDate, putPeriod, putWindows, run, splitMessages };
+module.exports = { applyOverrides, evaluate, fetchPrice, koreaToday, parseCallPeriod, parseDate, portfolioJsonFromEnv, putPeriod, putWindows, run, splitMessages };
