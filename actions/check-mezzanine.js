@@ -31,6 +31,29 @@ function parseCallPeriod(value) {
   return { start: parseDate(dates[0]), end: parseDate(dates[1]) };
 }
 
+function putPeriod(item) {
+  const period = parseCallPeriod(item.putPeriod);
+  if (period.start || period.end) return period;
+  const date = parseDate(item.putDate);
+  return { start: date, end: null };
+}
+
+function putWindows(item) {
+  if (Array.isArray(item.putSchedule) && item.putSchedule.length) {
+    return item.putSchedule
+      .map((row) => ({
+        no: row.no,
+        start: parseDate(row.from || row.start),
+        end: parseDate(row.to || row.end),
+        payment: parseDate(row.payment || row.putDate),
+        rate: row.rate || "",
+      }))
+      .filter((row) => row.start);
+  }
+  const period = putPeriod(item);
+  return period.start ? [{ start: period.start, end: period.end, payment: parseDate(item.putDate), rate: "" }] : [];
+}
+
 function daysUntil(date, today) {
   return date ? Math.round((date.getTime() - today.getTime()) / DAY_MS) : null;
 }
@@ -80,10 +103,19 @@ function evaluate(item, currentPrice, today = koreaToday()) {
     alerts.push(`전환 가능 ${conversionDays < 0 ? `${Math.abs(conversionDays)}일 경과` : conversionDays === 0 ? "오늘" : `${conversionDays}일 전`} · 현재가 ${currentPrice.toLocaleString()}원 > 최초전환가 ${initialPrice.toLocaleString()}원 (+${premium}%)`);
   }
 
-  const putDate = parseDate(item.putDate);
-  const putDays = daysUntil(putDate, today);
-  if (putDays !== null && putDays >= 0 && putDays <= ALERT_DAYS) {
-    alerts.push(`Put 행사 가능 ${putDays === 0 ? "오늘" : `${putDays}일 후`} (${formatDate(putDate)})`);
+  const puts = putWindows(item);
+  const activePut = puts.find((put) => put.start && put.end && today >= put.start && today <= put.end);
+  if (activePut) {
+    alerts.push(`현재 Put 행사기간 (${formatDate(activePut.start)} ~ ${formatDate(activePut.end)} · 지급 ${formatDate(activePut.payment)})`);
+  } else {
+    const nextPut = puts
+      .map((put) => ({ ...put, days: daysUntil(put.start, today) }))
+      .filter((put) => put.days !== null && put.days >= 0 && put.days <= ALERT_DAYS)
+      .sort((a, b) => a.days - b.days)[0];
+    if (nextPut) {
+      const periodText = nextPut.end ? `${formatDate(nextPut.start)} ~ ${formatDate(nextPut.end)}` : formatDate(nextPut.start);
+      alerts.push(`Put 행사기간 시작 ${nextPut.days === 0 ? "오늘" : `${nextPut.days}일 후`} (${periodText} · 지급 ${formatDate(nextPut.payment)})`);
+    }
   }
 
   const call = parseCallPeriod(item.callPeriod);
@@ -183,4 +215,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { applyOverrides, evaluate, fetchPrice, koreaToday, parseCallPeriod, parseDate, run, splitMessages };
+module.exports = { applyOverrides, evaluate, fetchPrice, koreaToday, parseCallPeriod, parseDate, putPeriod, putWindows, run, splitMessages };
