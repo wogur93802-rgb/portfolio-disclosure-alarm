@@ -63,6 +63,29 @@ function parseCallPeriod(value) {
   return { start: toDate(matches[0]), end: matches[1] ? toDate(matches[1]) : toDate(matches[0]) };
 }
 
+function parsePutPeriod(item) {
+  const period = parseCallPeriod(item.putPeriod);
+  if (period) return period;
+  const date = parseScheduleDate(item.putDate);
+  return date ? { start: date, end: date } : null;
+}
+
+function putSchedules(item) {
+  if (Array.isArray(item.putSchedule) && item.putSchedule.length) {
+    return item.putSchedule
+      .map((row) => ({
+        no: row.no,
+        start: parseScheduleDate(row.from || row.start),
+        end: parseScheduleDate(row.to || row.end),
+        payment: parseScheduleDate(row.payment || row.putDate),
+        rate: row.rate || "",
+      }))
+      .filter((row) => row.start);
+  }
+  const period = parsePutPeriod(item);
+  return period ? [{ start: period.start, end: period.end, payment: parseScheduleDate(item.putDate), rate: "" }] : [];
+}
+
 function daysUntil(date) {
   if (!date) return null;
   return Math.ceil((date.getTime() - todayAtMidnight().getTime()) / 86400000);
@@ -97,8 +120,28 @@ function mezzanineEvents(item) {
   };
 
   push("conversion", "전환가능", parseScheduleDate(item.conversionDate));
-  push("put", "PUT", parseScheduleDate(item.putDate));
   push("refixing", "리픽싱", parseScheduleDate(item.nextRefixingDate));
+
+  const puts = putSchedules(item);
+  if (puts.length && state.mezzanineTypes.has("put")) {
+    const today = todayAtMidnight();
+    const activePut = puts.find((put) => put.start && put.end && put.start <= today && today <= put.end);
+    const nextPut = activePut || puts
+      .map((put) => ({ ...put, days: daysUntil(put.start) }))
+      .filter((put) => put.days !== null && put.days >= 0)
+      .sort((a, b) => a.days - b.days)[0];
+    const target = activePut ? today : nextPut?.start;
+    const event = {
+      type: "put",
+      label: activePut ? "PUT 진행중" : "PUT 시작",
+      date: target,
+      days: activePut ? 0 : daysUntil(target),
+      detail: nextPut?.end && nextPut.end.getTime() !== nextPut.start.getTime()
+        ? `${formatDisplayDate(nextPut.start)} - ${formatDisplayDate(nextPut.end)}`
+        : formatDisplayDate(nextPut?.start),
+    };
+    if (eventInWindow(event)) events.push(event);
+  }
 
   const call = parseCallPeriod(item.callPeriod);
   if (call && state.mezzanineTypes.has("call")) {
@@ -191,10 +234,24 @@ function renderMezzanine() {
       </div>
       <div class="schedule-grid">
         <div><span>전환가능일</span><strong>${escapeHtml(item.conversionDate || "-")}</strong></div>
-        <div><span>Put 행사일</span><strong>${escapeHtml(item.putDate || "-")}</strong></div>
+        <div><span>Put 행사기간</span><strong>${escapeHtml(item.putPeriod || item.putDate || "-")}</strong></div>
         <div><span>Call 행사기간</span><strong>${escapeHtml(item.callPeriod || "-")}</strong></div>
         <div><span>다음 리픽싱</span><strong>${escapeHtml(item.nextRefixingDate || "-")}</strong></div>
       </div>
+      ${Array.isArray(item.putSchedule) && item.putSchedule.length ? `
+        <details class="put-schedule">
+          <summary>PUT 전체 일정 ${item.putSchedule.length}회 보기</summary>
+          <div class="put-schedule-list">
+            ${item.putSchedule.map((row) => `
+              <span>
+                <b>${escapeHtml(row.no ? `${row.no}차` : "PUT")}</b>
+                <em>${escapeHtml(row.from || "-")} ~ ${escapeHtml(row.to || "-")}</em>
+                <small>지급 ${escapeHtml(row.payment || "-")} ${row.rate ? `· ${escapeHtml(row.rate)}` : ""}</small>
+              </span>
+            `).join("")}
+          </div>
+        </details>
+      ` : ""}
       ${item.alerts?.length ? `<div class="alert-list">${item.alerts.map((alert) => `<div class="alert-item">${escapeHtml(alert)}</div>`).join("")}</div>` : ""}
       <span class="funds">${escapeHtml((item.funds || []).join(" · "))}</span>
     </article>
