@@ -27,5 +27,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MEZZANINE_PORTFOLIO_GZIP_BASE64: ${{ secrets.MEZZANINE_PORTFOLIO_GZIP_BASE64 }}
           MEZZANINE_PORTFOLIO_BASE64: ${{ secrets.MEZZANINE_PORTFOLIO_BASE64 }}
         run: node actions/check-mezzanine.js
