@@ -7,6 +7,7 @@ const state = {
   mezzanineWindow: "90",
   mezzanineSort: "nearest",
   lowPriceOnly: false,
+  lowMarketCapOnly: false,
 };
 const list = document.querySelector("#disclosure-list");
 const liveDot = document.querySelector("#live-dot");
@@ -189,11 +190,14 @@ function renderMezzanine() {
   const alertCount = state.mezzanine.filter((item) => item.alerts?.length).length;
   const lowPriceCount = state.mezzanine.filter((item) => item.lowPrice?.isBelow).length;
   const lowPriceWarningCount = state.mezzanine.filter((item) => item.lowPrice?.warning).length;
+  const lowMarketCapCount = state.mezzanine.filter((item) => item.marketCap?.isBelow).length;
   const filtered = state.mezzanine
     .map((item) => ({ ...item, scheduleEvents: mezzanineEvents(item) }))
     .filter((item) =>
       normalizeSearchText(`${item.name} ${item.quoteName || ""} ${item.code} ${(item.funds || []).join(" ")}`).includes(query)
-      && (state.lowPriceOnly ? item.lowPrice?.isBelow : item.scheduleEvents.length > 0),
+      && (state.lowPriceOnly ? item.lowPrice?.isBelow : true)
+      && (state.lowMarketCapOnly ? item.marketCap?.isBelow : true)
+      && (state.lowPriceOnly || state.lowMarketCapOnly || item.scheduleEvents.length > 0),
     );
 
   filtered.sort((a, b) => {
@@ -206,13 +210,13 @@ function renderMezzanine() {
   });
 
   document.querySelector("#mezzanine-alert-badge").textContent = alertCount ? alertCount : "";
-  document.querySelector("#mezzanine-result-count").textContent = `${filtered.length}건 · 알림 ${alertCount}건 · 1,000원 미만 ${lowPriceCount}건${lowPriceWarningCount ? ` · 20일+ ${lowPriceWarningCount}건` : ""}`;
+  document.querySelector("#mezzanine-result-count").textContent = `${filtered.length}건 · 알림 ${alertCount}건 · 1,000원 미만 ${lowPriceCount}건${lowPriceWarningCount ? ` · 20일+ ${lowPriceWarningCount}건` : ""} · 시총 300억 미만 ${lowMarketCapCount}건`;
   if (!filtered.length) {
     mezzanineList.innerHTML = '<p class="empty">선택한 조건에 해당하는 일정이 없습니다.</p>';
     return;
   }
   mezzanineList.innerHTML = filtered.map((item) => `
-    <article class="mezzanine-card ${item.alerts?.length ? "alert" : ""} ${item.lowPrice?.warning ? "low-warning" : ""} ${item.lowPrice?.critical ? "low-critical" : ""}">
+    <article class="mezzanine-card ${item.alerts?.length ? "alert" : ""} ${item.lowPrice?.warning ? "low-warning" : ""} ${item.lowPrice?.critical ? "low-critical" : ""} ${item.marketCap?.isBelow ? "market-cap-low" : ""}">
       <div class="mezzanine-head">
         <div>
           <strong class="mezzanine-name">${escapeHtml(item.name)}</strong>
@@ -224,7 +228,8 @@ function renderMezzanine() {
           <span>최초 ${Number(item.initialConversionPrice || 0).toLocaleString()}원</span>
           <span>현재/최저 ${Number(item.currentConversionPrice || 0).toLocaleString()}원 / ${Number(item.minimumConversionPrice || 0).toLocaleString()}원</span>
           <em>Parity ${item.parity !== null && item.parity !== undefined ? `${Number(item.parity).toLocaleString()}%` : "-"}</em>
-          ${item.lowPrice?.isBelow ? `<i class="low-price-badge">1,000원 미만 ${Number(item.lowPrice.streak || 0).toLocaleString()}일 연속${item.lowPrice.critical ? " · 30일 위험" : item.lowPrice.warning ? " · 20일 경고" : ""}</i>` : ""}
+          ${item.lowPrice?.isBelow ? `<i class="low-price-badge">7/1부터 1,000원 미만 ${Number(item.lowPrice.streak || 0).toLocaleString()}거래일${item.lowPrice.critical ? " · 30일 위험" : item.lowPrice.warning ? " · 20일 경고" : ""}</i>` : ""}
+          ${item.marketCap?.isBelow ? `<i class="market-cap-badge">시총 ${escapeHtml(item.marketCap.marketCapText || `${item.marketCap.marketCapEok}억`)} · 300억 미만</i>` : ""}
         </div>
       </div>
       <div class="event-strip">
@@ -365,6 +370,11 @@ document.querySelector("#mezzanine-sort")?.addEventListener("change", (event) =>
 
 document.querySelector("#low-price-only")?.addEventListener("change", (event) => {
   state.lowPriceOnly = event.target.checked;
+  renderMezzanine();
+});
+
+document.querySelector("#low-market-cap-only")?.addEventListener("change", (event) => {
+  state.lowMarketCapOnly = event.target.checked;
   renderMezzanine();
 });
 
