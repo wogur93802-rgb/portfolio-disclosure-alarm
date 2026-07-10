@@ -218,6 +218,7 @@ dialog a { color: var(--accent); }
 .mezzanine-card.alert { border-color: rgba(255, 190, 99, .65); background: linear-gradient(135deg, rgba(255, 190, 99, .08), var(--panel) 45%); }
 .mezzanine-card.low-warning { border-color: rgba(255, 190, 99, .8); box-shadow: 0 0 0 1px rgba(255, 190, 99, .18) inset; }
 .mezzanine-card.low-critical { border-color: rgba(223, 89, 101, .9); background: linear-gradient(135deg, rgba(223, 89, 101, .12), var(--panel) 48%); }
+.mezzanine-card.market-cap-low { box-shadow: 0 0 0 1px rgba(94, 229, 165, .18) inset; }
 .mezzanine-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
 .mezzanine-name { display: block; margin-bottom: 4px; }
 .mezzanine-code, .quote-name, .funds { display: block; color: var(--muted); font-size: .72rem; }
@@ -228,6 +229,7 @@ dialog a { color: var(--accent); }
 .price-box em { display: block; margin-top: 5px; color: var(--kind); font-size: .78rem; font-style: normal; font-weight: 800; }
 .low-price-badge { display: block; margin-top: 6px; color: #ffd08a; font-size: .72rem; font-style: normal; font-weight: 900; }
 .low-critical .low-price-badge { color: #ff9ca6; }
+.market-cap-badge { display: block; margin-top: 5px; color: #93ffd0; font-size: .72rem; font-style: normal; font-weight: 900; }
 .event-strip {
   display: flex;
   flex-wrap: wrap;
