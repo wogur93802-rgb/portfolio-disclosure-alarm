@@ -6,6 +6,7 @@ const state = {
   mezzanineTypes: new Set(["conversion", "put", "call", "refixing"]),
   mezzanineWindow: "90",
   mezzanineSort: "nearest",
+  lowPriceOnly: false,
 };
 const list = document.querySelector("#disclosure-list");
 const liveDot = document.querySelector("#live-dot");
@@ -186,11 +187,13 @@ function render() {
 function renderMezzanine() {
   const query = normalizeSearchText(state.search);
   const alertCount = state.mezzanine.filter((item) => item.alerts?.length).length;
+  const lowPriceCount = state.mezzanine.filter((item) => item.lowPrice?.isBelow).length;
+  const lowPriceWarningCount = state.mezzanine.filter((item) => item.lowPrice?.warning).length;
   const filtered = state.mezzanine
     .map((item) => ({ ...item, scheduleEvents: mezzanineEvents(item) }))
     .filter((item) =>
       normalizeSearchText(`${item.name} ${item.quoteName || ""} ${item.code} ${(item.funds || []).join(" ")}`).includes(query)
-      && item.scheduleEvents.length > 0,
+      && (state.lowPriceOnly ? item.lowPrice?.isBelow : item.scheduleEvents.length > 0),
     );
 
   filtered.sort((a, b) => {
@@ -203,13 +206,13 @@ function renderMezzanine() {
   });
 
   document.querySelector("#mezzanine-alert-badge").textContent = alertCount ? alertCount : "";
-  document.querySelector("#mezzanine-result-count").textContent = `${filtered.length}건 · 알림 ${alertCount}건`;
+  document.querySelector("#mezzanine-result-count").textContent = `${filtered.length}건 · 알림 ${alertCount}건 · 1,000원 미만 ${lowPriceCount}건${lowPriceWarningCount ? ` · 20일+ ${lowPriceWarningCount}건` : ""}`;
   if (!filtered.length) {
     mezzanineList.innerHTML = '<p class="empty">선택한 조건에 해당하는 일정이 없습니다.</p>';
     return;
   }
   mezzanineList.innerHTML = filtered.map((item) => `
-    <article class="mezzanine-card ${item.alerts?.length ? "alert" : ""}">
+    <article class="mezzanine-card ${item.alerts?.length ? "alert" : ""} ${item.lowPrice?.warning ? "low-warning" : ""} ${item.lowPrice?.critical ? "low-critical" : ""}">
       <div class="mezzanine-head">
         <div>
           <strong class="mezzanine-name">${escapeHtml(item.name)}</strong>
@@ -221,6 +224,7 @@ function renderMezzanine() {
           <span>최초 ${Number(item.initialConversionPrice || 0).toLocaleString()}원</span>
           <span>현재/최저 ${Number(item.currentConversionPrice || 0).toLocaleString()}원 / ${Number(item.minimumConversionPrice || 0).toLocaleString()}원</span>
           <em>Parity ${item.parity !== null && item.parity !== undefined ? `${Number(item.parity).toLocaleString()}%` : "-"}</em>
+          ${item.lowPrice?.isBelow ? `<i class="low-price-badge">1,000원 미만 ${Number(item.lowPrice.streak || 0).toLocaleString()}일 연속${item.lowPrice.critical ? " · 30일 위험" : item.lowPrice.warning ? " · 20일 경고" : ""}</i>` : ""}
         </div>
       </div>
       <div class="event-strip">
@@ -356,6 +360,11 @@ document.querySelector("#mezzanine-window")?.addEventListener("change", (event) 
 
 document.querySelector("#mezzanine-sort")?.addEventListener("change", (event) => {
   state.mezzanineSort = event.target.value;
+  renderMezzanine();
+});
+
+document.querySelector("#low-price-only")?.addEventListener("change", (event) => {
+  state.lowPriceOnly = event.target.checked;
   renderMezzanine();
 });
 
