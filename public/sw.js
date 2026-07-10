@@ -1,4 +1,4 @@
-const CACHE = "disclosure-alarm-v11";
+const CACHE = "disclosure-alarm-v12";
 const ASSETS = ["/", "/styles.css", "/app.js", "/manifest.json", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
