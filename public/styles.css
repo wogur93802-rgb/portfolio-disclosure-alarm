@@ -229,7 +229,8 @@ dialog a { color: var(--accent); }
 .price-box em { display: block; margin-top: 5px; color: var(--kind); font-size: .78rem; font-style: normal; font-weight: 800; }
 .low-price-badge { display: block; margin-top: 6px; color: #ffd08a; font-size: .72rem; font-style: normal; font-weight: 900; }
 .low-critical .low-price-badge { color: #ff9ca6; }
-.market-cap-badge { display: block; margin-top: 5px; color: #93ffd0; font-size: .72rem; font-style: normal; font-weight: 900; }
+.market-cap-badge { display: block; margin-top: 5px; color: var(--muted); font-size: .72rem; font-style: normal; font-weight: 900; }
+.market-cap-badge.low { color: #93ffd0; }
 .event-strip {
   display: flex;
   flex-wrap: wrap;
