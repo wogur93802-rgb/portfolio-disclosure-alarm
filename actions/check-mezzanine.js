@@ -5,6 +5,7 @@ const { overrideKey } = require("./conversion-adjustments");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ALERT_DAYS = 14;
+const LOW_PRICE_THRESHOLD = 1000;
 const OVERRIDES_PATH = path.join(__dirname, "mezzanine-overrides.json");
 
 function koreaToday() {
@@ -101,6 +102,39 @@ async function fetchPrice(code, fetchImpl = fetch) {
   const price = number(payload.closePrice);
   if (price === null) throw new Error(`No price: ${stockCode}`);
   return { price, stockName: payload.stockName || stockCode };
+}
+
+async function fetchPriceHistory(code, fetchImpl = fetch, pageSize = 60) {
+  const stockCode = String(code).replace(/^A/, "");
+  const response = await fetchImpl(`https://m.stock.naver.com/api/stock/${stockCode}/price?pageSize=${pageSize}&page=1`, {
+    headers: { "User-Agent": "Mozilla/5.0 portfolio-disclosure-alarm/1.0" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) throw new Error(`Price history HTTP ${response.status}: ${stockCode}`);
+  const payload = await response.json();
+  if (!Array.isArray(payload)) throw new Error(`No price history: ${stockCode}`);
+  return payload.map((row) => ({
+    date: row.localTradedAt || row.localDate,
+    closePrice: number(row.closePrice),
+  })).filter((row) => row.date && row.closePrice !== null);
+}
+
+function belowThresholdInfo(history, threshold = LOW_PRICE_THRESHOLD) {
+  let streak = 0;
+  for (const row of history || []) {
+    if (Number(row.closePrice) < threshold) streak += 1;
+    else break;
+  }
+  const latest = history?.[0] || null;
+  return {
+    threshold,
+    streak,
+    isBelow: Boolean(latest && Number(latest.closePrice) < threshold),
+    warning: streak >= 20,
+    critical: streak >= 30,
+    latestClose: latest?.closePrice ?? null,
+    latestDate: latest?.date || "",
+  };
 }
 
 function evaluate(item, currentPrice, today = koreaToday()) {
@@ -223,4 +257,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { applyOverrides, evaluate, fetchPrice, koreaToday, parseCallPeriod, parseDate, portfolioJsonFromEnv, putPeriod, putWindows, run, splitMessages };
+module.exports = { applyOverrides, belowThresholdInfo, evaluate, fetchPrice, fetchPriceHistory, koreaToday, parseCallPeriod, parseDate, portfolioJsonFromEnv, putPeriod, putWindows, run, splitMessages };
