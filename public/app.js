@@ -204,6 +204,14 @@ function renderMezzanine() {
     if (state.mezzanineSort === "parity") {
       return Number(b.parity ?? -1) - Number(a.parity ?? -1) || a.name.localeCompare(b.name, "ko");
     }
+    if (state.mezzanineSort === "marketCapAsc") {
+      return Number(a.marketCap?.marketCapEok ?? Infinity) - Number(b.marketCap?.marketCapEok ?? Infinity)
+        || a.name.localeCompare(b.name, "ko");
+    }
+    if (state.mezzanineSort === "marketCapDesc") {
+      return Number(b.marketCap?.marketCapEok ?? -1) - Number(a.marketCap?.marketCapEok ?? -1)
+        || a.name.localeCompare(b.name, "ko");
+    }
     if (state.mezzanineSort === "name") return a.name.localeCompare(b.name, "ko");
     return (a.scheduleEvents[0]?.days ?? 99999) - (b.scheduleEvents[0]?.days ?? 99999)
       || a.name.localeCompare(b.name, "ko");
