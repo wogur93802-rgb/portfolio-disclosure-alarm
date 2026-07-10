@@ -6,6 +6,8 @@ const { overrideKey } = require("./conversion-adjustments");
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ALERT_DAYS = 14;
 const LOW_PRICE_THRESHOLD = 1000;
+const LOW_PRICE_COUNT_START = "2026-07-01";
+const LOW_MARKET_CAP_EOK = 300;
 const OVERRIDES_PATH = path.join(__dirname, "mezzanine-overrides.json");
 
 function koreaToday() {
@@ -119,15 +121,49 @@ async function fetchPriceHistory(code, fetchImpl = fetch, pageSize = 60) {
   })).filter((row) => row.date && row.closePrice !== null);
 }
 
-function belowThresholdInfo(history, threshold = LOW_PRICE_THRESHOLD) {
+function parseMarketCapEok(value) {
+  const text = String(value || "").replaceAll(",", "").trim();
+  let eok = 0;
+  const jo = text.match(/([\d.]+)\s*조/);
+  const uk = text.match(/([\d.]+)\s*억/);
+  if (jo) eok += Number(jo[1]) * 10000;
+  if (uk) eok += Number(uk[1]);
+  if (!jo && !uk) {
+    const raw = Number(text);
+    if (Number.isFinite(raw)) eok = raw;
+  }
+  return Number.isFinite(eok) && eok > 0 ? eok : null;
+}
+
+async function fetchMarketInfo(code, fetchImpl = fetch) {
+  const stockCode = String(code).replace(/^A/, "");
+  const response = await fetchImpl(`https://m.stock.naver.com/api/stock/${stockCode}/integration`, {
+    headers: { "User-Agent": "Mozilla/5.0 portfolio-disclosure-alarm/1.0" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) throw new Error(`Market info HTTP ${response.status}: ${stockCode}`);
+  const payload = await response.json();
+  const marketValueText = (payload.totalInfos || []).find((item) => item.code === "marketValue")?.value || "";
+  const marketCapEok = parseMarketCapEok(marketValueText);
+  return {
+    marketCapText: marketValueText,
+    marketCapEok,
+    thresholdEok: LOW_MARKET_CAP_EOK,
+    isBelow: marketCapEok !== null && marketCapEok < LOW_MARKET_CAP_EOK,
+  };
+}
+
+function belowThresholdInfo(history, threshold = LOW_PRICE_THRESHOLD, startDate = LOW_PRICE_COUNT_START) {
+  const filtered = (history || []).filter((row) => String(row.date).slice(0, 10) >= startDate);
   let streak = 0;
-  for (const row of history || []) {
+  for (const row of filtered) {
     if (Number(row.closePrice) < threshold) streak += 1;
     else break;
   }
-  const latest = history?.[0] || null;
+  const latest = filtered?.[0] || history?.[0] || null;
   return {
     threshold,
+    startDate,
     streak,
     isBelow: Boolean(latest && Number(latest.closePrice) < threshold),
     warning: streak >= 20,
@@ -257,4 +293,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { applyOverrides, belowThresholdInfo, evaluate, fetchPrice, fetchPriceHistory, koreaToday, parseCallPeriod, parseDate, portfolioJsonFromEnv, putPeriod, putWindows, run, splitMessages };
+module.exports = { applyOverrides, belowThresholdInfo, evaluate, fetchMarketInfo, fetchPrice, fetchPriceHistory, koreaToday, parseCallPeriod, parseDate, parseMarketCapEok, portfolioJsonFromEnv, putPeriod, putWindows, run, splitMessages };
