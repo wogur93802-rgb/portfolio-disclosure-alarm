@@ -229,7 +229,7 @@ function renderMezzanine() {
           <span>현재/최저 ${Number(item.currentConversionPrice || 0).toLocaleString()}원 / ${Number(item.minimumConversionPrice || 0).toLocaleString()}원</span>
           <em>Parity ${item.parity !== null && item.parity !== undefined ? `${Number(item.parity).toLocaleString()}%` : "-"}</em>
           ${item.lowPrice?.isBelow ? `<i class="low-price-badge">7/1부터 1,000원 미만 ${Number(item.lowPrice.streak || 0).toLocaleString()}거래일${item.lowPrice.critical ? " · 30일 위험" : item.lowPrice.warning ? " · 20일 경고" : ""}</i>` : ""}
-          ${item.marketCap?.isBelow ? `<i class="market-cap-badge">시총 ${escapeHtml(item.marketCap.marketCapText || `${item.marketCap.marketCapEok}억`)} · 300억 미만</i>` : ""}
+          ${item.marketCap ? `<i class="market-cap-badge ${item.marketCap.isBelow ? "low" : ""}">시총 ${escapeHtml(item.marketCap.marketCapText || (item.marketCap.marketCapEok !== null && item.marketCap.marketCapEok !== undefined ? `${item.marketCap.marketCapEok}억` : "조회 실패"))}${item.marketCap.isBelow ? " · 300억 미만" : ""}</i>` : ""}
         </div>
       </div>
       <div class="event-strip">
