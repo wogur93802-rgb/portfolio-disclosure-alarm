@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101827">
+  <meta name="description" content="관심 종목 DART와 KIND 신규 공시 알리미">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <title>포트폴리오 공시 알리미</title>
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">DART + KIND</p>
+      <h1>포트폴리오 공시 알리미</h1>
+    </div>
+    <span id="live-dot" class="dot"></span>
+  </header>
+
+  <main>
+    <section id="setup-card" class="setup hidden">
+      <strong>처음 사용 설정이 필요합니다.</strong>
+      <span>아래 설정 버튼을 눌러 OpenDART 인증키를 입력하세요.</span>
+    </section>
+
+    <section class="status-grid">
+      <article>
+        <span>감시 종목</span>
+        <strong id="watch-count">-</strong>
+      </article>
+      <article>
+        <span>마지막 확인</span>
+        <strong id="last-check">-</strong>
+      </article>
+      <article>
+        <span>모바일 알림</span>
+        <strong id="push-status">-</strong>
+      </article>
+    </section>
+
+    <section class="controls">
+      <button id="notify-button" type="button">화면 알림 켜기</button>
+      <button id="sync-button" type="button" class="secondary">지금 확인</button>
+      <button id="install-button" type="button" class="secondary hidden">앱 설치</button>
+      <button id="settings-button" type="button" class="secondary">설정</button>
+      <input id="search" type="search" placeholder="종목명 또는 공시명 검색">
+    </section>
+
+    <nav class="view-tabs" aria-label="화면 선택">
+      <button id="disclosure-tab" type="button" class="tab active">신규 공시</button>
+      <button id="mezzanine-tab" type="button" class="tab">메자닌 일정 <span id="mezzanine-alert-badge"></span></button>
+    </nav>
+
+    <dialog id="settings-dialog">
+      <form id="settings-form" method="dialog">
+        <div class="dialog-title">
+          <div>
+            <p class="eyebrow">APP SETTINGS</p>
+            <h2>공시 알리미 설정</h2>
+          </div>
+          <button id="close-settings" type="button" class="close-button" aria-label="닫기">×</button>
+        </div>
+        <label>
+          <span>OpenDART 인증키</span>
+          <input id="dart-api-key" name="dartApiKey" autocomplete="off" placeholder="40자리 인증키">
+          <small><a href="https://opendart.fss.or.kr/uss/umt/EgovMberInsertView.do" target="_blank" rel="noopener">OpenDART에서 무료 인증키 받기</a></small>
+        </label>
+        <label>
+          <span>ntfy 주제명</span>
+          <input id="ntfy-topic" name="ntfyTopic" autocomplete="off" placeholder="예: my-disclosure-긴-임의문자">
+          <small>휴대폰 ntfy 앱에서 동일한 주제를 구독하면 즉시 알림을 받습니다.</small>
+        </label>
+        <label>
+          <span>텔레그램 봇 토큰 (선택)</span>
+          <input id="telegram-token" name="telegramToken" autocomplete="off">
+        </label>
+        <label>
+          <span>텔레그램 Chat ID (선택)</span>
+          <input id="telegram-chat-id" name="telegramChatId" autocomplete="off">
+        </label>
+        <div class="mobile-address">
+          <strong>모바일 접속 주소</strong>
+          <div id="local-urls"></div>
+        </div>
+        <p id="settings-message"></p>
+        <div class="dialog-actions">
+          <button id="test-notification" type="button" class="secondary">알림 테스트</button>
+          <button type="submit">저장하고 시작</button>
+        </div>
+      </form>
+    </dialog>
+
+    <section id="disclosure-section">
+      <div class="section-title">
+        <h2>신규 공시</h2>
+        <span id="result-count"></span>
+      </div>
+      <div id="disclosure-list" class="disclosure-list">
+        <p class="empty">공시를 불러오는 중입니다.</p>
+      </div>
+    </section>
+
+    <section id="mezzanine-section" class="hidden">
+      <div class="section-title">
+        <div>
+          <h2>메자닌 일정</h2>
+          <p class="section-note">전환·Put·Call·리픽싱과 현재가를 확인합니다.</p>
+        </div>
+        <span id="mezzanine-result-count"></span>
+      </div>
+      <div class="mezzanine-tools" aria-label="메자닌 일정 필터">
+        <div class="toggle-group">
+          <label><input type="checkbox" class="mezzanine-type" value="conversion" checked> 전환가능</label>
+          <label><input type="checkbox" class="mezzanine-type" value="put" checked> PUT</label>
+          <label><input type="checkbox" class="mezzanine-type" value="call" checked> Call</label>
+          <label><input type="checkbox" class="mezzanine-type" value="refixing" checked> 리픽싱</label>
+          <label><input type="checkbox" id="low-price-only"> 1,000원 미만만</label>
+        </div>
+        <select id="mezzanine-window" aria-label="일정 기간">
+          <option value="30">30일</option>
+          <option value="60">60일</option>
+          <option value="90" selected>90일</option>
+          <option value="180">180일</option>
+          <option value="365">1년</option>
+          <option value="all">전체</option>
+        </select>
+        <select id="mezzanine-sort" aria-label="메자닌 정렬">
+          <option value="nearest">가까운 일정순</option>
+          <option value="parity">패리티 높은순</option>
+          <option value="name">종목명순</option>
+        </select>
+      </div>
+      <div id="mezzanine-list" class="mezzanine-list">
+        <p class="empty">메자닌 일정을 불러오는 중입니다.</p>
+      </div>
+    </section>
+
+    <details>
+      <summary>감시 종목 목록 보기</summary>
+      <div id="watchlist" class="chips"></div>
+    </details>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
