@@ -40,5 +40,11 @@
     "sourceRceptNo": "20261012900278",
     "sourceReportName": "전환가액의조정              ",
     "updatedAt": "2026-10-12T09:08:25.585Z"
+  },
+  "A347850|2|디앤디파마텍2CB": {
+    "currentConversionPrice": "54416",
+    "sourceRceptNo": "20261030901174",
+    "sourceReportName": "전환가액의조정              (제2회차)",
+    "updatedAt": "2026-10-30T14:16:30.280Z"
   }
 }
