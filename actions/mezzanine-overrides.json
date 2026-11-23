@@ -52,5 +52,17 @@
     "sourceRceptNo": "20261110900472",
     "sourceReportName": "전환가액의조정              ",
     "updatedAt": "2026-11-10T10:30:46.725Z"
+  },
+  "A214680|8|디알텍8CB": {
+    "currentConversionPrice": "8005",
+    "sourceRceptNo": "20261123900567",
+    "sourceReportName": "전환가액의조정              ",
+    "updatedAt": "2026-11-23T11:20:31.392Z"
+  },
+  "A372320|2|큐로셀2CB": {
+    "currentConversionPrice": "25950",
+    "sourceRceptNo": "20261123900660",
+    "sourceReportName": "전환가액의조정              ",
+    "updatedAt": "2026-11-23T11:20:32.934Z"
   }
 }
